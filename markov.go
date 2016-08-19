@@ -14,6 +14,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,9 @@ var (
 	prefixLen  int
 	messageLen int
 	db         *sql.DB
+	dbMutex    sync.Mutex
+
+	splitRegex = regexp.MustCompile("\\s")
 )
 
 func createSchema() {
@@ -104,6 +108,9 @@ func getPrefixId(tr *sql.Tx, prefix string) int64 {
 }
 
 func insertEntry(prefix string, next string) {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+
 	tr, err := db.Begin()
 	if err != nil {
 		logrus.Panic(err)
@@ -119,9 +126,26 @@ func insertEntry(prefix string, next string) {
 }
 
 func insertStart(prefix string) {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+
 	_, err := db.Exec("INSERT INTO markov_start (prefix) VALUES (?)", prefix)
 	if err != nil {
 		logrus.Panic(err)
+	}
+}
+
+func processText(text string) {
+	words := splitRegex.Split(text, -1)
+	nwords := len(words)
+	for i := 0; i+prefixLen < nwords; i++ {
+		prefix := words[i : i+prefixLen]
+		next := words[i+prefixLen]
+		logrus.Debug(strings.Join(prefix, "|"), " => ", next)
+		insertEntry(strings.Join(prefix, " "), next)
+	}
+	if len(words) > prefixLen {
+		insertStart(strings.Join(words[0:prefixLen], " "))
 	}
 }
 
@@ -137,25 +161,13 @@ func processInput(path string) (int, error) {
 	var line string
 	var lines int
 
-	re := regexp.MustCompile("\\s")
-
 	for line, err = reader.ReadString('\n'); err == nil; line, err = reader.ReadString('\n') {
 		lines++
 		var str string
 		if err := json.Unmarshal([]byte(line), &str); err != nil {
 			return 0, err
 		}
-		words := re.Split(str, -1)
-		nwords := len(words)
-		for i := 0; i+prefixLen < nwords; i++ {
-			prefix := words[i : i+prefixLen]
-			next := words[i+prefixLen]
-			logrus.Debug(strings.Join(prefix, "|"), " => ", next)
-			insertEntry(strings.Join(prefix, " "), next)
-		}
-		if len(words) > prefixLen {
-			insertStart(strings.Join(words[0:prefixLen], " "))
-		}
+		processText(str)
 	}
 	if err != io.EOF {
 		return 0, err
