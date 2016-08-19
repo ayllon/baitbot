@@ -277,8 +277,16 @@ var MarkovGenerateCmd = &cobra.Command{
 	Use: "generate",
 	Run: func(cmd *cobra.Command, args []string) {
 		rand.Seed(time.Now().Unix())
-
-		seed := getSeed()
+		var seed string
+		if len(args) > 0 && len(args) != prefixLen {
+			logrus.Error("Need ", prefixLen, " words as seed")
+			return
+		} else if len(args) == prefixLen {
+			seed = strings.Join(args, " ")
+		} else {
+			logrus.Debug("Using random seed")
+			seed = getSeed()
+		}
 		logrus.Info("Using as seed ", seed)
 
 		text := generate(seed)
