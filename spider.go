@@ -9,12 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"sync/atomic"
 )
 
 var (
-	limit uint64
-	count uint64
+	limit        uint64
+	count        uint64
+	visited      = make(map[string]bool)
+	visitedMutex sync.Mutex
 )
 
 func processLink(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
@@ -25,12 +26,21 @@ func processLink(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
 				resolved := parent.ResolveReference(parsed)
 				if resolved.Host != parent.Host {
 					logrus.Debug("Ignore link to ", resolved)
-				} else if atomic.AddUint64(&count, 1) <= limit {
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
-						processPage(wg, resolved)
-					}()
+				} else {
+					visitedMutex.Lock()
+					defer visitedMutex.Unlock()
+
+					if !visited[resolved.String()] && count < limit {
+						visited[resolved.String()] = true
+						count++
+						wg.Add(1)
+						go func() {
+							defer wg.Done()
+							processPage(wg, resolved)
+						}()
+					} else {
+						logrus.Warn("Page already visited or limit encountered")
+					}
 				}
 			}
 		}

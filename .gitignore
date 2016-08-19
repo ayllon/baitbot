@@ -2,4 +2,5 @@ baitbot
 *.iml
 *.data
 authn.yaml
+.idea
 

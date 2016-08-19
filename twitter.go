@@ -94,7 +94,7 @@ var GetTweetsCmd = &cobra.Command{
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		search, err := api.GetSearch(searchTerm + " -RT", url.Values{"count": []string{"100"}})
+		search, err := api.GetSearch(searchTerm+" -RT", url.Values{"count": []string{"100"}})
 		if err != nil {
 			logrus.Fatal(err)
 		}
