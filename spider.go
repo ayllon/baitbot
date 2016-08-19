@@ -18,7 +18,24 @@ var (
 	visitedMutex sync.Mutex
 )
 
-func processLink(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
+func visitLink(wg *sync.WaitGroup, link *url.URL) {
+	visitedMutex.Lock()
+	defer visitedMutex.Unlock()
+
+	if !visited[link.String()] && count < limit {
+		visited[link.String()] = true
+		count++
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			processPage(wg, link)
+		}()
+	} else {
+		logrus.Warn("Page already visited or limit encountered")
+	}
+}
+
+func processHref(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
 	for _, attr := range node.Attr {
 		if attr.Key == "href" {
 			link := attr.Val
@@ -27,20 +44,7 @@ func processLink(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
 				if resolved.Host != parent.Host {
 					logrus.Debug("Ignore link to ", resolved)
 				} else {
-					visitedMutex.Lock()
-					defer visitedMutex.Unlock()
-
-					if !visited[resolved.String()] && count < limit {
-						visited[resolved.String()] = true
-						count++
-						wg.Add(1)
-						go func() {
-							defer wg.Done()
-							processPage(wg, resolved)
-						}()
-					} else {
-						logrus.Warn("Page already visited or limit encountered")
-					}
+					visitLink(wg, resolved)
 				}
 			}
 		}
@@ -87,7 +91,7 @@ func processPage(wg *sync.WaitGroup, resource *url.URL) {
 		if node.Type == html.ElementNode {
 			switch node.Data {
 			case "a":
-				processLink(wg, resource, node)
+				processHref(wg, resource, node)
 			case "p":
 				processParagraph(node)
 			}
