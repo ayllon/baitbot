@@ -22,7 +22,9 @@ func visitLink(wg *sync.WaitGroup, link *url.URL) {
 	visitedMutex.Lock()
 	defer visitedMutex.Unlock()
 
-	if !visited[link.String()] && count < limit {
+	if count >= limit {
+		logrus.Warn("Limit reached")
+	} else if !visited[link.String()] {
 		visited[link.String()] = true
 		count++
 		wg.Add(1)
@@ -31,7 +33,7 @@ func visitLink(wg *sync.WaitGroup, link *url.URL) {
 			processPage(wg, link)
 		}()
 	} else {
-		logrus.Warn("Page already visited or limit encountered")
+		logrus.Warn("Page already visited: ", link)
 	}
 }
 
