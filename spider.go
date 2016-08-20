@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/html"
 	"net/http"
@@ -23,7 +23,7 @@ func visitLink(wg *sync.WaitGroup, link *url.URL) {
 	defer visitedMutex.Unlock()
 
 	if count >= limit {
-		logrus.Warn("Limit reached")
+		log.Warn("Limit reached")
 	} else if !visited[link.String()] {
 		visited[link.String()] = true
 		count++
@@ -33,7 +33,7 @@ func visitLink(wg *sync.WaitGroup, link *url.URL) {
 			processPage(wg, link)
 		}()
 	} else {
-		logrus.Warn("Page already visited: ", link)
+		log.Warn("Page already visited: ", link)
 	}
 }
 
@@ -44,7 +44,7 @@ func processHref(wg *sync.WaitGroup, parent *url.URL, node *html.Node) {
 			if parsed, err := url.Parse(link); err == nil {
 				resolved := parent.ResolveReference(parsed)
 				if resolved.Host != parent.Host {
-					logrus.Debug("Ignore link to ", resolved)
+					log.Debug("Ignore link to ", resolved)
 				} else {
 					visitLink(wg, resolved)
 				}
@@ -66,25 +66,26 @@ func extractText(node *html.Node) string {
 }
 
 func processParagraph(node *html.Node) {
-	text := extractText(node)
-	if text != "" {
-		processText(text)
+	if text := extractText(node); text != "" {
+		if err := m.ProcessText(text); err != nil {
+			log.Error(err)
+		}
 	}
 }
 
 func processPage(wg *sync.WaitGroup, resource *url.URL) {
-	logrus.Info("Processing ", resource)
+	log.Info("Processing ", resource)
 
 	response, err := http.Get(resource.String())
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return
 	}
 	defer response.Body.Close()
 
 	doc, err := html.Parse(response.Body)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 		return
 	}
 
@@ -122,7 +123,7 @@ var SpiderCmd = &cobra.Command{
 				defer wg.Done()
 				resource, err := url.Parse(address)
 				if err != nil {
-					logrus.Error(err)
+					log.Error(err)
 				} else {
 					processPage(&wg, resource)
 				}
@@ -135,5 +136,5 @@ var SpiderCmd = &cobra.Command{
 func init() {
 	SpiderCmd.PersistentFlags().Uint64Var(&limit, "limit", 100, "Limit")
 
-	MarkovCmd.AddCommand(SpiderCmd)
+	ImportCmd.AddCommand(SpiderCmd)
 }
