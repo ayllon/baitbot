@@ -1,6 +1,7 @@
 baitbot
 *.iml
 *.data
+data
 authn.yaml
 .idea
 
