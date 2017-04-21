@@ -9,11 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 )
 
 var (
 	limit        uint64
 	count        uint64
+	sleep        time.Duration
 	visited      = make(map[string]bool)
 	visitedMutex sync.Mutex
 )
@@ -75,6 +77,7 @@ func processParagraph(node *html.Node) {
 
 func processPage(wg *sync.WaitGroup, resource *url.URL) {
 	log.Info("Processing ", resource)
+	time.Sleep(sleep)
 
 	response, err := http.Get(resource.String())
 	if err != nil {
@@ -135,6 +138,7 @@ var SpiderCmd = &cobra.Command{
 
 func init() {
 	SpiderCmd.PersistentFlags().Uint64Var(&limit, "limit", 100, "Limit")
+	SpiderCmd.PersistentFlags().DurationVar(&sleep, "sleep", 0, "Sleep between requests")
 
 	ImportCmd.AddCommand(SpiderCmd)
 }
