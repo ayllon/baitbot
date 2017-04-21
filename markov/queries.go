@@ -35,6 +35,6 @@ func (m *Markov) insertEntry(prefix string, next string) error {
 
 // insertStart inserts a new prefix that can be considered the start of a sentence
 func (m *Markov) insertStart(prefix string) error {
-	_, err := m.db.Exec("INSERT INTO markov_start (prefix) VALUES (?)", prefix)
+	_, err := m.db.Exec("INSERT OR IGNORE INTO markov_start (prefix) VALUES (?)", prefix)
 	return err
 }
