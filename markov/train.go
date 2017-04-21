@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	splitRegex = regexp.MustCompile("\\s")
+	splitRegex = regexp.MustCompile("\\s+")
 )
 
 // ProcessText extracts prefixes => next from the given text
